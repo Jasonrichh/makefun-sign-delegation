@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>make.fun — Konfirmasi Step-Up</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: #0f1115;
+    color: #e8eaf0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    padding: 20px 14px 48px;
+  }
+  .wrap { max-width: 680px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 8px 0 4px; }
+  .sub { color: #9aa3b2; font-size: 14px; margin: 0 0 18px; }
+  .card {
+    background: #171a21;
+    border: 1px solid #2a2f3a;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .row { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .label { color: #9aa3b2; font-size: 13px; }
+  .value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 13px; word-break: break-all; }
+  #countdown { font-size: 18px; font-weight: 700; color: #ffd166; }
+  #countdown.expired { color: #ff6b6b; }
+  pre {
+    background: #0b0d12;
+    border: 1px solid #2a2f3a;
+    border-radius: 8px;
+    padding: 12px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-size: 13px;
+    margin: 8px 0 0;
+    max-height: 260px;
+    overflow-y: auto;
+  }
+  button {
+    font-size: 16px;
+    font-weight: 700;
+    border: none;
+    border-radius: 10px;
+    padding: 14px 20px;
+    cursor: pointer;
+    width: 100%;
+  }
+  #signBtn { background: #ab9ff2; color: #14101f; }
+  #signBtn:disabled { background: #3a3f4b; color: #8a90a0; cursor: not-allowed; }
+  .copyBtn {
+    width: auto;
+    font-size: 13px;
+    padding: 8px 14px;
+    background: #2a2f3a;
+    color: #e8eaf0;
+    margin-top: 8px;
+  }
+  #status { margin: 12px 0; font-size: 14px; min-height: 20px; }
+  #status.error { color: #ff6b6b; }
+  #status.ok { color: #7ddba3; }
+  #status.info { color: #9aa3b2; }
+  .resultBox {
+    width: 100%;
+    background: #0b0d12;
+    color: #e8eaf0;
+    border: 1px solid #2a2f3a;
+    border-radius: 8px;
+    padding: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+    word-break: break-all;
+    resize: vertical;
+    min-height: 56px;
+  }
+  .resultLabel { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+  .resultLabel .hint { font-weight: 400; color: #ffd166; font-size: 13px; }
+  .explain { font-size: 14px; color: #c6cddb; }
+  .explain li { margin-bottom: 6px; }
+  .hidden { display: none; }
+  #walletLine { font-size: 13px; color: #7ddba3; word-break: break-all; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>make.fun — Konfirmasi Step-Up</h1>
+  <p class="sub">Tanda tangani pesan konfirmasi ini dengan dompet Phantom kamu supaya pendaftaran payout delegation bisa diselesaikan.</p>
+
+  <div class="card">
+    <div class="row">
+      <div>
+        <div class="label">Challenge ID</div>
+        <div class="value" id="challengeId">—</div>
+      </div>
+      <div>
+        <div class="label">Kedaluwarsa</div>
+        <div class="value" id="expTime">—</div>
+      </div>
+    </div>
+    <div style="margin-top: 12px;">
+      <div class="label">Hitung mundur</div>
+      <div id="countdown">—</div>
+    </div>
+    <div style="margin-top: 12px;">
+      <div class="label">Pesan tantangan (ditandatangani persis seperti di bawah ini)</div>
+      <pre id="msgBox">Memuat…</pre>
+    </div>
+  </div>
+
+  <button id="signBtn" type="button">Sign with Phantom</button>
+  <div id="status" class="info"></div>
+  <div id="walletLine"></div>
+
+  <div id="results" class="hidden">
+    <div class="card">
+      <div class="resultLabel">Header step-up <span class="hint">— Kirim nilai ini ke Agent Mark di chat</span></div>
+      <textarea id="headerBox" class="resultBox" readonly></textarea>
+      <button class="copyBtn" type="button" data-copy="headerBox">Salin header</button>
+    </div>
+    <div class="card">
+      <div class="resultLabel">Signature (base58)</div>
+      <textarea id="b58Box" class="resultBox" readonly></textarea>
+      <button class="copyBtn" type="button" data-copy="b58Box">Salin base58</button>
+    </div>
+    <div class="card">
+      <div class="resultLabel">Signature (base64)</div>
+      <textarea id="b64Box" class="resultBox" readonly></textarea>
+      <button class="copyBtn" type="button" data-copy="b64Box">Salin base64</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <ul class="explain">
+      <li>Ini hanya <b>konfirmasi off-chain</b> — <b>bukan transaksi</b>, tanpa fee, dan tidak memindahkan dana apa pun.</li>
+      <li>Tanda tangan ini <b>hanya berlaku untuk pendaftaran delegasi ini</b> dan kedaluwarsa dalam <b>5 menit</b>.</li>
+      <li>Halaman ini <b>tidak pernah mengirim apa pun ke mana pun</b> — tanda tangan hanya ditampilkan di layar kamu, lalu kamu yang mengirimkannya ke Agent Mark.</li>
+      <li>Halaman ini <b>tidak pernah meminta private key atau seed phrase</b>. Jangan pernah membagikannya ke siapa pun.</li>
+    </ul>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+  var state = { id: '', msg: '', expMs: null };
+  var timer = null;
+
+  var challengeIdEl = document.getElementById('challengeId');
+  var expTimeEl = document.getElementById('expTime');
+  var countdownEl = document.getElementById('countdown');
+  var msgBoxEl = document.getElementById('msgBox');
+  var signBtn = document.getElementById('signBtn');
+  var statusEl = document.getElementById('status');
+  var walletLineEl = document.getElementById('walletLine');
+  var resultsEl = document.getElementById('results');
+
+  function setStatus(text, kind) {
+    statusEl.textContent = text;
+    statusEl.className = kind || 'info';
+  }
+
+  function parseHash() {
+    var hash = window.location.hash || '';
+    if (hash.charAt(0) === '#') hash = hash.slice(1);
+    var params = new URLSearchParams(hash);
+    state.id = params.get('id') || '';
+    state.msg = params.get('msg') || '';
+    var exp = params.get('exp') || '';
+    if (exp) {
+      var t = Date.parse(exp);
+      if (!isNaN(t)) state.expMs = t;
+    }
+  }
+
+  function tick() {
+    if (state.expMs === null) {
+      countdownEl.textContent = 'Waktu kedaluwarsa tidak diketahui.';
+      return;
+    }
+    var left = state.expMs - Date.now();
+    if (left <= 0) {
+      countdownEl.textContent = 'Kedaluwarsa — minta challenge baru ke Agent Mark.';
+      countdownEl.classList.add('expired');
+      signBtn.disabled = true;
+      if (timer !== null) { clearInterval(timer); timer = null; }
+      return;
+    }
+    var s = Math.floor(left / 1000);
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    countdownEl.textContent = 'Sisa waktu: ' + m + ' menit ' + (sec < 10 ? '0' : '') + sec + ' detik (' + s + ' detik)';
+  }
+
+  function base58Encode(bytes) {
+    var zeros = 0;
+    while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
+    if (zeros === bytes.length) return '1'.repeat(zeros);
+    var digits = [0];
+    for (var i = zeros; i < bytes.length; i++) {
+      var carry = bytes[i];
+      for (var j = 0; j < digits.length; j++) {
+        carry += digits[j] << 8;
+        digits[j] = carry % 58;
+        carry = (carry / 58) | 0;
+      }
+      while (carry > 0) {
+        digits.push(carry % 58);
+        carry = (carry / 58) | 0;
+      }
+    }
+    var out = '';
+    for (var k = 0; k < zeros; k++) out += '1';
+    for (var d = digits.length - 1; d >= 0; d--) out += ALPHABET[digits[d]];
+    return out;
+  }
+
+  function base64Encode(bytes) {
+    var bin = '';
+    var CHUNK = 0x8000;
+    for (var i = 0; i < bytes.length; i += CHUNK) {
+      bin += String.fromCharCode.apply(null, bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(bin);
+  }
+
+  function copyText(text, btn) {
+    function done() {
+      var old = btn.textContent;
+      btn.textContent = 'Disalin ✓';
+      setTimeout(function () { btn.textContent = old; }, 2000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text); done(); });
+    } else {
+      fallbackCopy(text);
+      done();
+    }
+  }
+
+  function fallbackCopy(text) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); } catch (e) { /* abaikan */ }
+    document.body.removeChild(ta);
+  }
+
+  async function sign() {
+    setStatus('', 'info');
+    if (!window.solana || !window.solana.isPhantom) {
+      setStatus('Phantom tidak terdeteksi. Aktifkan ekstensi Phantom di browser ini, lalu refresh halaman ini dan coba lagi.', 'error');
+      return;
+    }
+    if (state.expMs !== null && Date.now() >= state.expMs) {
+      setStatus('Challenge sudah kedaluwarsa. Minta challenge baru ke Agent Mark.', 'error');
+      return;
+    }
+    try {
+      signBtn.disabled = true;
+      setStatus('Menghubungkan ke Phantom…', 'info');
+      var resp = await window.solana.connect();
+      var pubkey = resp && resp.publicKey ? resp.publicKey.toString() : '';
+      if (pubkey) walletLineEl.textContent = 'Dompet terhubung: ' + pubkey;
+      setStatus('Menunggu tanda tangan di Phantom…', 'info');
+      var signed = await window.solana.signMessage(new TextEncoder().encode(state.msg));
+      var sig = signed && signed.signature ? signed.signature : null;
+      if (!sig) throw new Error('Phantom tidak mengembalikan signature.');
+      var sigBytes = sig instanceof Uint8Array ? sig : new Uint8Array(sig);
+      var b58 = base58Encode(sigBytes);
+      var b64 = base64Encode(sigBytes);
+      var header = state.id + '.' + b58;
+      document.getElementById('headerBox').value = header;
+      document.getElementById('b58Box').value = b58;
+      document.getElementById('b64Box').value = b64;
+      resultsEl.classList.remove('hidden');
+      setStatus('Berhasil ditandatangani. Salin header di atas dan kirim ke Agent Mark di chat — secepatnya, karena challenge kedaluwarsa 5 menit.', 'ok');
+    } catch (err) {
+      setStatus('Gagal menandatangani: ' + (err && err.message ? err.message : String(err)), 'error');
+      signBtn.disabled = false;
+    }
+  }
+
+  function init() {
+    parseHash();
+    if (!state.id || !state.msg) {
+      msgBoxEl.textContent = 'Link tidak lengkap: challenge id atau pesan tidak ditemukan di URL. Minta link baru ke Agent Mark.';
+      signBtn.disabled = true;
+      setStatus('Link tidak lengkap.', 'error');
+      return;
+    }
+    challengeIdEl.textContent = state.id;
+    msgBoxEl.textContent = state.msg;
+    if (state.expMs !== null) {
+      var d = new Date(state.expMs);
+      expTimeEl.textContent = d.toLocaleString('id-ID') + ' (' + d.toISOString() + ')';
+    } else {
+      expTimeEl.textContent = 'Tidak diketahui';
+    }
+    tick();
+    timer = setInterval(tick, 1000);
+    signBtn.addEventListener('click', sign);
+    var copyBtns = document.querySelectorAll('.copyBtn');
+    for (var i = 0; i < copyBtns.length; i++) {
+      copyBtns[i].addEventListener('click', (function (btn) {
+        return function () {
+          var target = document.getElementById(btn.getAttribute('data-copy'));
+          if (target) copyText(target.value, btn);
+        };
+      })(copyBtns[i]));
+    }
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
