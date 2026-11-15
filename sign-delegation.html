@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanda Tangan Delegasi make.fun — Token Radar</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 32px auto; padding: 0 16px; color: #1a1a1a; line-height: 1.5; }
+  h1 { font-size: 20px; }
+  pre { background: #f4f4f4; padding: 12px; border-radius: 8px; white-space: pre-wrap; word-break: break-word; font-size: 13px; }
+  button { display: block; width: 100%; padding: 14px; margin: 10px 0; font-size: 16px; border: none; border-radius: 8px; background: #4f46e5; color: #fff; cursor: pointer; }
+  button:disabled { background: #9ca3af; cursor: default; }
+  #sig { background: #eef7ee; }
+  .warn { background: #fff7e6; border: 1px solid #f0c36d; padding: 12px; border-radius: 8px; font-size: 14px; }
+  #status { font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>Tanda Tangan Delegasi Payout make.fun</h1>
+<p>Ini untuk bounty <b>Token Radar</b> (@jason-lak-apu). Tanda tangan ini <b>hanya pesan teks</b> (off-chain) — <b>bukan transaksi, bukan kirim dana</b>. Tanda tangan ini memberi tahu make.fun: "kalau entry agen ini menang, bayar hadiahnya ke wallet Phantom saya".</p>
+<p><b>Pesan yang akan ditandatangani (baca dulu, harus persis sama di popup Phantom):</b></p>
+<pre id="msg">make.fun delegation v1; Domain: make.fun; Payout: HewGtRPimmZv9mLZPLMK2Zj6qxK29Jc65BfaLzHBxYAB; Agent: ECRRYngWa8pCQZHRb3mF6uiWgiVgMVzrtAWnLJvfdYEd; Competitions: *; Nonce: 9612aedae97ecdeb60ec03e31489c02b; Issued At: 2026-11-14T14:52:02.400Z; Expiration Time: 2027-02-12T14:52:02.400Z</pre>
+<p class="warn">⚠️ Jangan pernah kirim private key / seed phrase ke siapa pun, termasuk ke halaman ini. Halaman ini <b>tidak pernah meminta</b> private key — hanya minta Phantom menandatangani pesan di atas. Kalau Phantom menampilkan pesan yang berbeda dari teks di atas, <b>jangan setujui</b>.</p>
+<p id="status">Langkah 1: hubungkan Phantom.</p>
+<button id="connectBtn">1. Hubungkan Phantom</button>
+<button id="signBtn" disabled>2. Tanda Tangani Pesan di Phantom</button>
+<div id="result" style="display:none">
+  <p>Wallet yang menandatangani: <b id="wallet"></b></p>
+  <p>Pastikan alamat di atas sama dengan wallet Phantom kamu: <code>HewGtRPimmZv9mLZPLMK2Zj6qxK29Jc65BfaLzHBxYAB</code></p>
+  <p><b>Signature (base64) — kirim teks ini saja ke Agent Mark:</b></p>
+  <pre id="sig"></pre>
+  <button id="copyBtn">Salin Signature</button>
+</div>
+<script>
+const MSG = document.getElementById('msg').textContent.trim();
+const statusEl = document.getElementById('status');
+let provider = null;
+function getProvider() {
+  if (window.phantom && window.phantom.solana) return window.phantom.solana;
+  if (window.solana && window.solana.isPhantom) return window.solana;
+  return null;
+}
+document.getElementById('connectBtn').onclick = async () => {
+  provider = getProvider();
+  if (!provider) { statusEl.textContent = 'Phantom tidak ditemukan di browser ini. Buka halaman ini di Chrome yang sudah terpasang Phantom, lalu refresh.'; return; }
+  try {
+    const r = await provider.connect();
+    statusEl.textContent = 'Terhubung: ' + r.publicKey.toString() + '. Lanjut ke langkah 2.';
+    document.getElementById('signBtn').disabled = false;
+    document.getElementById('connectBtn').disabled = true;
+  } catch (e) { statusEl.textContent = 'Koneksi dibatalkan: ' + (e && e.message ? e.message : e); }
+};
+document.getElementById('signBtn').onclick = async () => {
+  try {
+    statusEl.textContent = 'Menunggu persetujuan di Phantom — cek popup Phantom, pastikan pesannya sama persis, lalu klik Sign.';
+    const encoded = new TextEncoder().encode(MSG);
+    const signed = await provider.signMessage(encoded, 'utf8');
+    const bytes = signed.signature;
+    let bin = '';
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    const b64 = btoa(bin);
+    document.getElementById('wallet').textContent = signed.publicKey.toString();
+    document.getElementById('sig').textContent = b64;
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('signBtn').disabled = true;
+    statusEl.textContent = 'Berhasil ditandatangani. Salin signature di bawah dan kirim ke Agent Mark.';
+  } catch (e) { statusEl.textContent = 'Penandatanganan dibatalkan/gagal: ' + (e && e.message ? e.message : e); }
+};
+document.getElementById('copyBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(document.getElementById('sig').textContent); document.getElementById('copyBtn').textContent = 'Tersalin!'; }
+  catch (e) { document.getElementById('copyBtn').textContent = 'Gagal menyalin — seleksi manual saja'; }
+};
+</script>
+</body>
+</html>
